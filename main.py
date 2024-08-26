@@ -66,7 +66,6 @@ def load_user_group_card(group_id, user_id):
             result = cursor.fetchone()
 
             if result:
-                conn.close()
                 return str(result[0])  # 返回元组中的第一个元素
 
     else:
@@ -87,7 +86,13 @@ def init_db():
         cursor = conn.cursor()
 
         cursor.execute(
-            "CREATE TABLE LockGroupCard (user_id TEXT, group_id TEXT, group_card TEXT, is_locked BOOLEAN)"
+            "CREATE TABLE LockGroupCard ("
+            "user_id TEXT, "
+            "group_id TEXT, "
+            "group_card TEXT, "
+            "is_locked BOOLEAN, "
+            "UNIQUE(user_id, group_id)"
+            ")"
         )
         conn.commit()
         conn.close()
@@ -99,26 +104,15 @@ def lock_group_card(group_id, user_id, group_card):
     db_path = os.path.join(DATA_DIR, "LockGroupCard.db")
     if os.path.exists(db_path):
         with sqlite3.connect(db_path) as conn:
-            conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
-            if load_user_group_card(group_id, user_id):
-                cursor.execute(
-                    "UPDATE LockGroupCard SET group_card = ? WHERE user_id = ? AND group_id = ? AND is_locked = TRUE",
-                    (group_card, user_id, group_id),
-                )
-                logging.info(
-                    f"[群名片锁] 群[{group_id}]的[{user_id}]的群名片为[{group_card}]已更新数据库"
-                )
-            else:
-                cursor.execute(
-                    "INSERT INTO LockGroupCard (user_id, group_id, group_card, is_locked) VALUES (?, ?, ?, TRUE)",
-                    (user_id, group_id, group_card),
-                )
-                logging.info(
-                    f"[群名片锁] 群[{group_id}]的[{user_id}]的群名片为[{group_card}]已写入数据库"
-                )
+            cursor.execute(
+                "INSERT OR REPLACE INTO LockGroupCard (user_id, group_id, group_card, is_locked) VALUES (?, ?, ?, TRUE)",
+                (user_id, group_id, group_card),
+            )
+            logging.info(
+                f"[群名片锁] 群[{group_id}]的[{user_id}]的群名片为[{group_card}]已写入或更新数据库"
+            )
             conn.commit()
-            conn.close()
             return True
     else:
         logging.error(f"LockGroupCard数据库不存在，初始化数据库")
@@ -129,15 +123,22 @@ def lock_group_card(group_id, user_id, group_card):
 # 解锁群名片
 def unlock_group_card(group_id, user_id):
     db_path = os.path.join(DATA_DIR, "LockGroupCard.db")
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "UPDATE LockGroupCard SET is_locked = FALSE WHERE user_id = ? AND group_id = ?",
-            (user_id, group_id),
-        )
-        logging.info(f"[群名片锁] 群[{group_id}]的[{user_id}]的群名片已从数据库中解锁")
-        conn.commit()
-        conn.close()
+    if os.path.exists(db_path):
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE LockGroupCard SET is_locked = FALSE WHERE user_id = ? AND group_id = ?",
+                (user_id, group_id),
+            )
+            logging.info(
+                f"[群名片锁] 群[{group_id}]的[{user_id}]的群名片已从数据库中解锁"
+            )
+            conn.commit()
+            return True
+    else:
+        logging.error(f"LockGroupCard数据库不存在，初始化数据库")
+        init_db()
+        return False
 
 
 # 管理群名片锁
@@ -209,7 +210,7 @@ async def manage_LockGroupCard(
                     await send_group_msg(
                         websocket,
                         group_id,
-                        f"[CQ:reply,id={message_id}][CQ:at,qq={user_id}] 群名片锁已锁定",
+                        f"[CQ:reply,id={message_id}][CQ:at,qq={user_id}] 群名片锁已锁定，群名片已锁定为[{group_card}]",
                     )
                 else:
                     await send_group_msg(
@@ -279,6 +280,11 @@ async def handle_user_group_card_lock(websocket, group_id, user_id, group_card):
                 group_id,
                 user_id,
                 group_card_in_db,
+            )
+            await send_group_msg(
+                websocket,
+                group_id,
+                f"[CQ:at,qq={user_id}] 检测到群名片被锁且与数据库不一致，群名片已由[{group_card}]修改为[{group_card_in_db}]",
             )
             logging.info(
                 f"[群名片锁]检测到群[{group_id}]的[{user_id}]的群名片不符合数据库，已自动修改为[{group_card_in_db}]"
