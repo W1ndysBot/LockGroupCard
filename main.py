@@ -291,6 +291,23 @@ async def handle_user_group_card_lock(websocket, group_id, user_id, group_card):
             )
 
 
+# 群名片锁菜单
+async def LockGroupCard(websocket, group_id, message_id):
+    message = (
+        f"[CQ:reply,id={message_id}]\n"
+        + """
+群名片锁
+
+lgc-on 开启群名片锁
+lgc-off 关闭群名片锁
+lgc-lock@+群名片 锁定群名片
+lgc-unlock@ 解锁群名片
+lgc-set@+群名片 修改群名片
+"""
+    )
+    await send_group_msg(websocket, group_id, message)
+
+
 # 群消息处理函数
 async def handle_LockGroupCard_group_message(websocket, msg):
     try:
@@ -300,6 +317,9 @@ async def handle_LockGroupCard_group_message(websocket, msg):
         role = str(msg.get("sender", {}).get("role"))
         message_id = str(msg.get("message_id"))
         group_card = str(msg.get("sender", {}).get("card"))
+
+        if raw_message == "lockgroupcard":
+            await LockGroupCard(websocket, group_id, message_id)
 
         asyncio.gather(
             manage_LockGroupCard(
