@@ -146,7 +146,7 @@ async def manage_LockGroupCard(
     websocket, group_id, user_id, role, message_id, raw_message
 ):
     try:
-        if not is_authorized(role, user_id) and raw_message.startswith("lgc-"):
+        if not is_authorized(role, user_id) and raw_message.startswith("lgc"):
             await send_group_msg(
                 websocket,
                 group_id,
@@ -154,7 +154,7 @@ async def manage_LockGroupCard(
             )
             return
 
-        if raw_message == "lgc-on":
+        if raw_message == "lgcon":
             if load_LockGroupCard(group_id):
                 await send_group_msg(
                     websocket,
@@ -170,7 +170,7 @@ async def manage_LockGroupCard(
                 )
             return
 
-        elif raw_message == "lgc-off":
+        elif raw_message == "lgcoff":
             if load_LockGroupCard(group_id):
                 save_LockGroupCard(group_id, False)
                 await send_group_msg(
@@ -187,7 +187,7 @@ async def manage_LockGroupCard(
             return
 
         # 检查群名片锁是否开启
-        if not load_LockGroupCard(group_id) and raw_message.startswith("lgc-"):
+        if not load_LockGroupCard(group_id) and raw_message.startswith("lgc"):
             await send_group_msg(
                 websocket,
                 group_id,
@@ -195,8 +195,8 @@ async def manage_LockGroupCard(
             )
             return
 
-        elif raw_message.startswith("lgc-lock"):
-            match = re.match(r"lgc-lock\[CQ:at,qq=([0-9]+)\](.*)", raw_message)
+        elif raw_message.startswith("lgclock"):
+            match = re.match(r"lgclock\[CQ:at,qq=([0-9]+)\](.*)", raw_message)
             if match:
                 user_id = match.group(1)
                 group_card = match.group(2).strip()
@@ -218,8 +218,8 @@ async def manage_LockGroupCard(
                         group_id,
                         f"[CQ:reply,id={message_id}][CQ:at,qq={user_id}] 群名片锁锁定失败",
                     )
-        elif raw_message.startswith("lgc-unlock"):
-            match = re.match(r"lgc-unlock\[CQ:at,qq=([0-9]+)\]", raw_message)
+        elif raw_message.startswith("lgcunlock"):
+            match = re.match(r"lgcunlock\[CQ:at,qq=([0-9]+)\]", raw_message)
             if match:
                 user_id = match.group(1)
                 unlock_group_card(group_id, user_id)
@@ -228,9 +228,9 @@ async def manage_LockGroupCard(
                     group_id,
                     f"[CQ:reply,id={message_id}][CQ:at,qq={user_id}] 群名片锁已解锁",
                 )
-        elif raw_message.startswith("lgc-set"):
+        elif raw_message.startswith("lgcset"):
             # 加斜杠是为了转义，防止正则表达式解析错误，[0-9]+ 表示一个或多个数字，不需要转义，但是cq码就是需要匹配的字符，需要转义
-            match = re.match(r"lgc-set\[CQ:at,qq=([0-9]+)\](.*)", raw_message)
+            match = re.match(r"lgcset\[CQ:at,qq=([0-9]+)\](.*)", raw_message)
             if match:
                 user_id = match.group(1)
                 group_card = match.group(2).strip()
@@ -251,11 +251,11 @@ async def manage_LockGroupCard(
                 websocket,
                 group_id,
                 f"[CQ:reply,id={message_id}]群名片锁命令错误\n"
-                + "lgc-on 开启群名片锁\n"
-                + "lgc-off 关闭群名片锁\n"
-                + "lgc-lock+@+群名片 锁定群名片\n"
-                + "lgc-unlock+@ 解锁群名片\n"
-                + "lgc-set+@+群名片 修改群名片",
+                + "lgcon 开启群名片锁\n"
+                + "lgcoff 关闭群名片锁\n"
+                + "lgclock+@+群名片 锁定群名片\n"
+                + "lgcunlock+@ 解锁群名片\n"
+                + "lgcset+@+群名片 修改群名片",
             )
     except Exception as e:
         logging.error(f"处理LockGroupCard管理命令失败: {e}")
@@ -298,11 +298,11 @@ async def LockGroupCard(websocket, group_id, message_id):
         + """
 群名片锁
 
-lgc-on 开启群名片锁
-lgc-off 关闭群名片锁
-lgc-lock@+群名片 锁定群名片
-lgc-unlock@ 解锁群名片
-lgc-set@+群名片 修改群名片
+lgcon 开启群名片锁
+lgcoff 关闭群名片锁
+lgclock@+群名片 锁定群名片
+lgcunlock@ 解锁群名片
+lgcset@+群名片 修改群名片
 """
     )
     await send_group_msg(websocket, group_id, message)
