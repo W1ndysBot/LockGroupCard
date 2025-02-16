@@ -331,3 +331,50 @@ async def handle_LockGroupCard_group_message(websocket, msg):
     except Exception as e:
         logging.error(f"处理LockGroupCard群消息失败: {e}")
         return
+
+
+# 统一事件处理入口
+async def handle_events(websocket, msg):
+    """统一事件处理入口"""
+    try:
+        # 处理回调事件
+        if msg.get("status") == "ok":
+            return
+
+        post_type = msg.get("post_type")
+
+        # 处理元事件
+        if post_type == "meta_event":
+            return
+
+        # 处理消息事件
+        elif post_type == "message":
+            message_type = msg.get("message_type")
+            if message_type == "group":
+                await handle_LockGroupCard_group_message(websocket, msg)
+            elif message_type == "private":
+                return
+
+        # 处理通知事件
+        elif post_type == "notice":
+            return
+
+    except Exception as e:
+        error_type = {
+            "message": "消息",
+            "notice": "通知",
+            "request": "请求",
+            "meta_event": "元事件",
+        }.get(post_type, "未知")
+
+        logging.error(f"处理群名片锁{error_type}事件失败: {e}")
+
+        # 发送错误提示
+        if post_type == "message":
+            message_type = msg.get("message_type")
+            if message_type == "group":
+                await send_group_msg(
+                    websocket,
+                    msg.get("group_id"),
+                    f"处理群名片锁{error_type}事件失败，错误信息：{str(e)}",
+                )
